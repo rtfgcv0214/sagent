@@ -36,10 +36,12 @@ from sagent.providers.selfhosted.server import (
     SelfHosted,
     SelfHostedModel,
 )
+from sagent.providers.vllm.api import VLLM
 
 
 __all__ = [
     "PROVIDER_NAMES",
+    "VLLM",
     "Anthropic",
     "AnthropicCLI",
     "DashScope",

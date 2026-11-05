@@ -36,6 +36,7 @@ from sagent.providers.moonshot.api import Moonshot
 from sagent.providers.openai.api import OpenAI
 from sagent.providers.openai.compat import OpenAICompatModel
 from sagent.providers.openai.responses import _OpenAIResponsesModel
+from sagent.providers.vllm.api import VLLM
 from sagent.types.capability import (
     ContextTag,
     ModelCapability,
@@ -121,6 +122,7 @@ _WIRE_BUILDERS: Mapping[str, _WireBuilder] = {
     "DashScope": (lambda: DashScope.from_key("k"), _chat_thinking),
     "MiniMax": (lambda: MiniMax.from_key("k"), _chat_thinking),
     "Moonshot": (lambda: Moonshot.from_key("k"), _chat_thinking),
+    "VLLM": (lambda: VLLM.from_key("k"), _chat_thinking),
 }
 
 

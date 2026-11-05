@@ -25,6 +25,7 @@ type ProviderName = Literal[
     "OpenAICompat",
     "OpenAISubscription",
     "SelfHosted",
+    "VLLM",
 ]
 
 PROVIDER_NAMES: Final[tuple[ProviderName, ...]] = cast(

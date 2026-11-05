@@ -220,6 +220,7 @@ to set the default value of the `--provider` flag.
 | `MiniMax` | `MINIMAX_API_KEY` | `minimax-2.7` |
 | `SelfHosted` | none | `Qwen/Qwen3.6-27B` |
 | `LlamaCpp` | none (uses `LLAMA_CPP_MODEL` + `LLAMA_CPP_SERVER`) | `qwen3.6-27b-12gb` |
+| `VLLM` | `VLLM_API_KEY` (optional) + `VLLM_BASE_URL` | `qwen-flash-next-3.8` |
 
 See [Providers](https://github.com/rekursiv-ai/sagent/blob/main/docs/providers.md) for the provider matrix, inference rules, and OpenAI-compatible provider setup.
 
@@ -258,6 +259,12 @@ The `LlamaCpp` provider is a second local option: it manages a
 endpoint. Point `LLAMA_CPP_SERVER` at a built `llama-server` binary and
 `LLAMA_CPP_MODEL` at a `.gguf` file, then run
 `sagent --provider LlamaCpp --model qwen3.6-27b-12gb`.
+
+The `VLLM` provider talks to a vLLM server already running elsewhere,
+such as a Slurm job on a GPU node: set `VLLM_BASE_URL` to its `/v1`
+endpoint and `VLLM_API_KEY` to its `--api-key`, then run
+`sagent --provider VLLM`. The catalog row's wire id is the server's
+`--served-model-name`.
 
 See [Self-hosted Models](https://github.com/rekursiv-ai/sagent/blob/main/docs/selfhosted.md) for options, local snapshot paths, and runtime requirements.
 

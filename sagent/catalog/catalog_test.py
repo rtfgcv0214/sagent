@@ -18,6 +18,7 @@ from sagent.catalog import (
     minimax,
     moonshot,
     openai,
+    vllm,
 )
 from sagent.types.capability import ModelCapability, ModelSettings
 from sagent.types.cost import PriceKey, TokenCount, TokenPrice
@@ -27,7 +28,7 @@ if TYPE_CHECKING:
     from types import ModuleType
 
 
-_VENDORS = (anthropic, dashscope, google, llamacpp, minimax, moonshot, openai)
+_VENDORS = (anthropic, dashscope, google, llamacpp, minimax, moonshot, openai, vllm)
 
 _TODAY = date(2026, 10, 3)
 
