@@ -37,6 +37,7 @@ from sagent.repl.run_repl import (
     _background_tasks_for_repl_cancel,
     _input_queue_committer_observer,
     install_input_queue_committer,
+    redraw_when_changed,
     run_repl,
 )
 from sagent.repl.slash_handlers import (
@@ -2514,3 +2515,25 @@ if __name__ == "__main__":
     from sagent.lib.testing.runner import test_main
 
     test_main(__file__)
+
+
+@pytest.mark.asyncio
+async def test_redraw_when_changed_redraws_only_on_a_change() -> None:
+    """An unchanged view writes nothing; each change redraws once."""
+    views = iter(["a", "a", "a", "b", "b", "a", "a"])
+    seen: list[str] = []
+    current = ["a"]
+
+    def view() -> str:
+        current[0] = next(views)
+        return current[0]
+
+    task = asyncio.create_task(
+        redraw_when_changed(lambda: seen.append(current[0]), view, seconds=0),
+    )
+    for _ in range(40):
+        await asyncio.sleep(0)
+        if len(seen) == 3:
+            break
+    _ = task.cancel()
+    assert seen == ["a", "b", "a"]

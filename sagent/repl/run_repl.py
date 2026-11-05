@@ -119,7 +119,6 @@ async def run_repl(
             history=FileHistory(str(history_path)),
             auto_suggest=AutoSuggestFromHistory(),
             bottom_toolbar=functools.partial(render_status_pane, agent),
-            refresh_interval=0.2,
             key_bindings=build_key_bindings(agent, queues, nav),
             enable_open_in_editor=False,
             style=style,
@@ -135,6 +134,12 @@ async def run_repl(
         # why those stay inside.
         agent.runtime.observers.append(render_observer)
         uninstall_committer = install_input_queue_committer(agent, queues)
+        redraw_task = asyncio.create_task(
+            redraw_when_changed(
+                session.app.invalidate,
+                lambda: (render_status_pane(agent), render_input_pane(agent, queues)),
+            ),
+        )
         pump_task = spawn_repl_pump(
             agent,
             PromptToolkitInputSource(session, queues=queues, console=console),
@@ -158,6 +163,7 @@ async def run_repl(
                 _ = t.cancel()
             if bg_tasks:
                 _ = await asyncio.gather(*bg_tasks, return_exceptions=True)
+            _ = redraw_task.cancel()
             _ = pump_task.cancel()
             try:
                 await pump_task
@@ -194,6 +200,40 @@ async def run_repl(
             "sagent --continue-all     # most recent session across all dirs\n"
             "sagent --resume-all       # interactive picker across all dirs\n",
         )
+
+
+REDRAW_SECONDS = 0.2
+"""How often the prompt checks whether its panes changed."""
+
+
+async def redraw_when_changed(
+    redraw: Callable[[], None],
+    view: Callable[[], object],
+    *,
+    seconds: float = REDRAW_SECONDS,
+) -> None:
+    """Redraw the prompt each time what its panes show changes.
+
+    prompt_toolkit's fixed ``refresh_interval`` redraws even when nothing
+    changed, and each redraw writes cursor moves to the terminal: an idle
+    REPL then streams ~150 B/s, so a supervisor that reads quiet from the
+    terminal's output never sees it go quiet. Comparing the panes instead
+    keeps the spinner and counters live during a run and leaves an idle
+    terminal silent.
+
+    Args:
+      redraw: Asks the prompt to redraw (``Application.invalidate``).
+      view: What the panes show now; compared with ``!=``.
+      seconds: How often to compare.
+
+    """
+    shown: object = None
+    while True:
+        await asyncio.sleep(seconds)
+        now = view()
+        if now != shown:
+            shown = now
+            redraw()
 
 
 def install_input_queue_committer(
