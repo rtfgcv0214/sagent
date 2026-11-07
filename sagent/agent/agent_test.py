@@ -471,6 +471,22 @@ def test_agent_budget_defaults_from_model() -> None:
     assert a.budget.max_request_tokens == 100_000
 
 
+def test_an_explicit_input_cap_shrinks_the_reply_reservation_with_it() -> None:
+    """A 50k cap on a model whose reply ceiling is 32k leaves room to compact into."""
+    model = StubModel(max_request_tokens=262_144, max_response_tokens=32_768)
+    capped = Agent(model=model, budget=AgentSettings(max_request_tokens=50_000))
+    assert capped.budget.max_response_tokens == 12_500
+    assert capped.budget.max_request_tokens == 50_000
+    wide = Agent(model=model, budget=AgentSettings(max_request_tokens=200_000))
+    assert wide.budget.max_response_tokens == 32_768  # the model's ceiling still bounds it
+    explicit = Agent(
+        model=model,
+        budget=AgentSettings(max_request_tokens=50_000, max_response_tokens=30_000),
+    )
+    assert explicit.budget.max_response_tokens == 30_000  # an explicit reply cap is kept
+    assert Agent(model=model).budget.max_response_tokens == 32_768  # no cap, no change
+
+
 def test_unknown_model_limits_require_explicit_agent_caps() -> None:
     agent = Agent(model=StubModel(max_request_tokens=0, max_response_tokens=0))
 

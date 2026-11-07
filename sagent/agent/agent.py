@@ -262,6 +262,14 @@ class ActivityTracker:
 _TOOL_REGISTRY_MAX: Final = 10_000
 
 
+RESPONSE_SHARE_OF_CAP = 4
+"""An explicit input cap reserves at most ``cap // 4`` for the reply unless the reply cap
+is also explicit (see :attr:`Agent.budget`)."""
+
+MIN_SCRUNCH_TARGET_TOKENS = 1
+"""Below this (nothing left once the system prompt and tools are counted) scrunch is
+not attempted: it used to fold toward a 1-token cap and could only fail."""
+
 class Agent:
     """Conversation agent: composes :class:`AgentRuntime` with wrappers.
 
@@ -505,6 +513,13 @@ class Agent:
                 raise ValueError(
                     "model max_response_tokens is unknown; set an explicit AgentSettings cap",
                 )
+            if self._budget.max_request_tokens is not None:
+                # An input cap chosen below the model's window shrinks the reply's
+                # reservation with it. The model's full reply ceiling (32k on a vLLM
+                # Qwen) taken out of a 50k cap, with the buffer, left about 10k --
+                # less than the system prompt and tools -- so compaction had no room
+                # and every scrunch failed. A quarter keeps three quarters for input.
+                response = min(response, max(1, request // RESPONSE_SHARE_OF_CAP))
         elif limits.max_response_tokens > 0:
             response = min(response, limits.max_response_tokens)
         buffer = self._budget.buffer_tokens
@@ -3633,12 +3648,27 @@ class _AgentCompactor:
                         self._agent.model,
                         payload,
                     )
-                    scrunch_target = max(1, target - max(0, overhead))
-                    payload = await self._scrunch_payload(
-                        payload=payload,
-                        mint_ref=mint_ref,
-                        target_input_tokens=scrunch_target,
-                    )
+                    scrunch_target = target - max(0, overhead)
+                    if scrunch_target < MIN_SCRUNCH_TARGET_TOKENS:
+                        # No room left once the system prompt and tools are
+                        # counted: folding toward a near-zero target cannot
+                        # succeed and used to spin on a 1-token cap. Say so,
+                        # with the numbers to change, and keep the payload.
+                        logger.warning(
+                            "no room to compact into: largest context %d minus "
+                            "system and tools %d leaves %d tokens (need %d); raise "
+                            "--max-request-tokens or lower --max-response-tokens",
+                            target,
+                            overhead,
+                            scrunch_target,
+                            MIN_SCRUNCH_TARGET_TOKENS,
+                        )
+                    else:
+                        payload = await self._scrunch_payload(
+                            payload=payload,
+                            mint_ref=mint_ref,
+                            target_input_tokens=scrunch_target,
+                        )
                     # Scrunch re-runs the producer per partition and may
                     # emit a fresh ``AssistantMessage`` whose tool_calls
                     # have no local ``ToolResult``. Re-repair so the final
